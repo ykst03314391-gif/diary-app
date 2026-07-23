@@ -651,7 +651,7 @@ function renderEditor(e, focusTitle) {
     </div>
     <div class="field-label">📍 お出かけ先</div>
     <input class="place-input" id="fPlace" placeholder="例：鎌倉、〇〇カフェ" value="${escapeHtml(e.place || "")}">
-    <div class="num-row">
+    ${secretMode ? "" : `<div class="num-row">
       <div class="num-field">
         <div class="field-label">⚖️ 体重（kg）</div>
         <input class="num-input" id="fWeight" type="number" inputmode="decimal" step="0.1" min="0" placeholder="例：58.5" value="${e.weight != null ? e.weight : ""}">
@@ -660,7 +660,7 @@ function renderEditor(e, focusTitle) {
         <div class="field-label">👣 歩数（歩）</div>
         <input class="num-input" id="fSteps" type="number" inputmode="numeric" step="1" min="0" placeholder="例：8000" value="${e.steps != null ? e.steps : ""}">
       </div>
-    </div>
+    </div>`}
     <div class="field-label">🏷️ タグ</div>
     <input class="tags-input" id="fTags" placeholder="カンマや空白で区切る　例：仕事, 家族, 散歩" value="${escapeHtml((e.tags || []).join(", "))}">
     <div class="tag-suggest" id="tagSuggest"></div>
@@ -689,7 +689,9 @@ function renderEditor(e, focusTitle) {
   bind("fPlace", "place");
   bind("fBody", "body");
   const bindNum = (id, prop) => {
-    document.getElementById(id).addEventListener("input", (ev) => {
+    const el = document.getElementById(id);
+    if (!el) return; // 裏日記モードでは非表示
+    el.addEventListener("input", (ev) => {
       const v = ev.target.value.trim();
       if (v === "" || isNaN(Number(v))) delete e[prop];
       else e[prop] = Number(v);
