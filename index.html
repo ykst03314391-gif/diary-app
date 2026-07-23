@@ -620,9 +620,8 @@ function newEntry(dateArg) {
     openEntry(existing.id);
     return;
   }
+  // 「保存」を押すまでは entries に加えず保存もしない（保存前に移動すれば残らない）
   const e = { id: uid(), date, title: "", place: "", body: "", mood: "", weather: "", tags: [], secret: secretMode, created: Date.now(), updated: Date.now() };
-  entries.push(e);
-  save();
   selectedId = e.id;
   renderEditor(e, true);
   render();
