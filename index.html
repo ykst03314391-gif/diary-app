@@ -260,6 +260,8 @@
   }
   .btn-mini:hover { border-color: var(--accent); background: #f7f2ea; }
   .sync-status { font-size: 11px; color: var(--sub); margin-top: 8px; }
+  .btn-danger { color: #b0413a; border-color: #e6c4c1; }
+  .btn-danger:hover { background: #fbeceb; border-color: #b0413a; }
   .footer-note { text-align:center; font-size: 11px; color: var(--sub); padding: 10px; }
   .count-note { font-size: 11px; color: var(--sub); padding: 6px 16px; }
   @media (max-width: 760px) {
@@ -311,6 +313,7 @@
         <button class="btn-mini" id="btnImportJson" title="JSONファイルから復元します">JSON読み込み</button>
         <button class="btn-mini" id="btnExportCsv" title="Excel等で開ける表として書き出します（閲覧用）">CSV書き出し</button>
         <button class="btn-mini" id="btnImportCsv" title="CSVファイルから読み込みます">CSV読み込み</button>
+        <button class="btn-mini btn-danger" id="btnClearAll" title="この端末の全データを消去します">全消去</button>
       </div>
       <input type="file" id="importFile" accept="application/json,.json" style="display:none">
       <input type="file" id="importCsvFile" accept="text/csv,.csv" style="display:none">
@@ -1214,6 +1217,27 @@ document.getElementById("importFile").addEventListener("change", (ev) => {
   if (f) importJson(f);
   ev.target.value = "";
 });
+function clearAll() {
+  if (entries.length === 0) { alert("消去するデータはありません。"); return; }
+  if (!confirm(`この端末の日記データ（表・裏あわせて ${entries.length} 件）をすべて消去します。\nこの操作は取り消せません。よろしいですか？`)) return;
+  const ans = prompt('本当に全消去する場合は「消去」と入力してください。');
+  if (ans === null) return;
+  if (ans.trim() !== "消去") { alert("入力が一致しなかったため、中止しました。"); return; }
+  entries = [];
+  selectedId = null; activeTag = null; searchQuery = "";
+  const s = document.getElementById("search"); if (s) s.value = "";
+  save();
+  document.getElementById("editor").innerHTML =
+    `<div class="welcome"><h2>全データを消去しました</h2><p>左の「＋ 新しい日記」から書き始められます。</p></div>`;
+  render();
+  if (ghToken() && ghGist()) {
+    if (confirm("クラウド（GitHub Gist）のデータも空にしますか？\n※他の端末で「取得」すると、そちらも空になります。")) {
+      syncPush();
+    }
+  }
+}
+
+document.getElementById("btnClearAll").onclick = clearAll;
 document.getElementById("btnImportCsv").onclick = () => document.getElementById("importCsvFile").click();
 document.getElementById("importCsvFile").addEventListener("change", (ev) => {
   const f = ev.target.files[0];
