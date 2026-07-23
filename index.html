@@ -130,6 +130,7 @@
   }
   .title-input:focus { outline: none; border-color: var(--accent); }
   .field-label { font-size: 12px; color: var(--sub); margin: 16px 0 5px; font-weight: 600; letter-spacing: .03em; }
+  .req { font-size: 10px; color: #fff; background: var(--accent); border-radius: 4px; padding: 1px 5px; margin-left: 5px; vertical-align: middle; }
   .place-input {
     width: 100%; border: 1px solid var(--line); border-radius: 8px;
     padding: 8px 10px; font-size: 14px; background: #fff;
@@ -601,7 +602,8 @@ function renderEditor(e, focusTitle) {
   const ed = document.getElementById("editor");
   ed.innerHTML = `
     <div class="meta-row">
-      <input type="date" id="fDate" value="${e.date}">
+      <span class="picker-label">日付<span class="req">必須</span></span>
+      <input type="date" id="fDate" value="${e.date}" required>
       <div class="picker" id="moodPicker"><span class="picker-label">気分</span>${pickerHtml(MOODS, "mood", e.mood)}</div>
     </div>
     <div class="meta-row">
@@ -730,6 +732,12 @@ function toggleTagInInput(tag) {
 }
 
 function saveEntry(e) {
+  if (!e.date || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) {
+    alert("日付は必須です。日付を入力してください。");
+    const f = document.getElementById("fDate");
+    if (f) f.focus();
+    return;
+  }
   const clash = findEntry(e.date, e.secret, e.id);
   if (clash) {
     alert(`${e.date} の${e.secret ? "裏" : "表"}日記はすでに存在します。\n1日1件までです。日付を変えるか、既存の日記を編集してください。`);
