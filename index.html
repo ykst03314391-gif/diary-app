@@ -129,6 +129,12 @@
     color: var(--ink); font-family: inherit;
   }
   .title-input:focus { outline: none; border-color: var(--accent); }
+  .editor-top { margin-bottom: 14px; }
+  .btn-back {
+    font-size: 13px; padding: 7px 14px; border: 1px solid var(--line);
+    background: #fff; color: var(--accent); border-radius: 8px; cursor: pointer;
+  }
+  .btn-back:hover { border-color: var(--accent); background: #f7f2ea; }
   .field-label { font-size: 12px; color: var(--sub); margin: 16px 0 5px; font-weight: 600; letter-spacing: .03em; }
   .req { font-size: 10px; color: #fff; background: var(--accent); border-radius: 4px; padding: 1px 5px; margin-left: 5px; vertical-align: middle; }
   .place-input {
@@ -256,6 +262,16 @@
   .cal-mark { font-size: 16px; line-height: 1.2; }
   .cal-count { font-size: 10px; color: var(--accent); margin-left: 2px; vertical-align: middle; }
   .cal-foot { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+  /* グラフ */
+  .chart-wrap { max-width: 720px; margin: 0 auto; }
+  .chart-block { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 6px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .chart-avg { font-size: 12px; font-weight: 400; color: var(--sub); }
+  .chart-svg { width: 100%; height: auto; display: block; }
+  .chart-grid { stroke: var(--line); stroke-width: 1; }
+  .chart-ylabel { fill: var(--sub); font-size: 11px; text-anchor: end; }
+  .chart-xlabel { fill: var(--sub); font-size: 11px; text-anchor: middle; }
+  .chart-empty { text-align: center; color: var(--sub); font-size: 13px; padding: 30px 0; }
   .welcome { text-align: center; color: var(--sub); margin-top: 80px; }
   .welcome h2 { color: var(--ink); font-weight: 500; }
   .backup { border-top: 1px solid var(--line); padding: 12px 16px 6px; }
@@ -308,6 +324,7 @@
     <div class="controls">
       <button class="btn-new" id="btnNew">＋ 新しい日記</button>
       <button class="btn-cal" id="btnCal">📅 カレンダーを表示</button>
+      <button class="btn-cal" id="btnChart">📈 体重・歩数グラフ</button>
       <input class="search" id="search" type="search" placeholder="キーワードで検索…">
     </div>
     <div class="secret-banner" id="secretBanner" style="display:none"></div>
@@ -371,6 +388,7 @@ let activeTag = null;
 let searchQuery = "";
 let secretMode = false; // 裏日記モード（リロードで解除・保存しない）
 let calYM = null; // カレンダー表示中の年月 {y, m}（0〜11）。nullなら非表示
+let chartYM = null; // グラフ表示中の年月 {y, m}
 const SECRET_WORD_KEY = "private_diary_secret_word_v1";
 function getSecretWord() { return localStorage.getItem(SECRET_WORD_KEY) || "ひみつ"; }
 function setSecretWord(w) { localStorage.setItem(SECRET_WORD_KEY, w); }
@@ -569,7 +587,7 @@ function pickerHtml(items, kind, current) {
 function openEntry(id) {
   const e = entries.find((x) => x.id === id);
   if (!e) return;
-  calYM = null;
+  calYM = null; chartYM = null;
   selectedId = id;
   renderEditor(e);
   render();
@@ -594,7 +612,7 @@ function enforceOnePerDay() {
 }
 
 function newEntry(dateArg) {
-  calYM = null;
+  calYM = null; chartYM = null;
   const date = dateArg || todayStr();
   const existing = findEntry(date, secretMode);
   if (existing) {
@@ -613,6 +631,9 @@ function newEntry(dateArg) {
 function renderEditor(e, focusTitle) {
   const ed = document.getElementById("editor");
   ed.innerHTML = `
+    <div class="editor-top">
+      <button type="button" class="btn-back" id="btnToCal">📅 カレンダーへ</button>
+    </div>
     <div class="meta-row">
       <span class="picker-label">日付<span class="req">必須</span></span>
       <input type="date" id="fDate" value="${e.date}" required>
@@ -693,6 +714,11 @@ function renderEditor(e, focusTitle) {
     renderPhotos(e);
   });
 
+  document.getElementById("btnToCal").onclick = () => {
+    if (!confirm("保存前だけど、削除して画面移動してOK？")) return;
+    entries = load(); // 未保存の編集を破棄
+    openCalendar();
+  };
   document.getElementById("btnSave").onclick = () => saveEntry(e);
   document.getElementById("btnDel").onclick = () => delEntry(e);
   // Ctrl/Cmd+S で保存
@@ -997,6 +1023,127 @@ function closeCalendar() {
   render();
 }
 
+// ===== 体重・歩数グラフ =====
+function openChart() {
+  const d = new Date();
+  chartYM = chartYM || { y: d.getFullYear(), m: d.getMonth() };
+  calYM = null; selectedId = null;
+  renderChart();
+  render();
+}
+
+function shiftChartMonth(delta) {
+  let { y, m } = chartYM;
+  m += delta;
+  if (m < 0) { m = 11; y--; }
+  if (m > 11) { m = 0; y++; }
+  chartYM = { y, m };
+  renderChart();
+}
+
+// 折れ線グラフのSVGを生成（data: [{day, val}]）
+function lineChartSVG(unit, data, color, decimals) {
+  const W = 600, H = 200, padL = 48, padR = 14, padT = 16, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  if (data.length === 0) {
+    return `<div class="chart-empty">この月の記録はありません</div>`;
+  }
+  const vals = data.map((d) => d.val);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (min === max) { min -= 1; max += 1; }
+  const pad = (max - min) * 0.12;
+  min -= pad; max += pad;
+  const days = chartMonthDays();
+  const xOf = (day) => padL + (days === 1 ? plotW / 2 : ((day - 1) / (days - 1)) * plotW);
+  const yOf = (v) => padT + (1 - (v - min) / (max - min)) * plotH;
+
+  // Y軸グリッド＋ラベル（4分割）
+  let grid = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = min + ((max - min) * i) / 4;
+    const y = yOf(v);
+    grid += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" class="chart-grid"/>`;
+    grid += `<text x="${padL - 6}" y="${(y + 3).toFixed(1)}" class="chart-ylabel">${v.toFixed(decimals)}</text>`;
+  }
+  // X軸ラベル（1日、中間、末日）
+  const xticks = [1, Math.round(days / 2), days];
+  let xlabels = "";
+  [...new Set(xticks)].forEach((dd) => {
+    xlabels += `<text x="${xOf(dd).toFixed(1)}" y="${H - 8}" class="chart-xlabel">${dd}</text>`;
+  });
+
+  const pts = data.map((d) => `${xOf(d.day).toFixed(1)},${yOf(d.val).toFixed(1)}`).join(" ");
+  const line = `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const dots = data.map((d) =>
+    `<circle cx="${xOf(d.day).toFixed(1)}" cy="${yOf(d.val).toFixed(1)}" r="3.5" fill="${color}"><title>${d.day}日: ${d.val}${unit}</title></circle>`
+  ).join("");
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart-svg" preserveAspectRatio="xMidYMid meet">${grid}${xlabels}${line}${dots}</svg>`;
+}
+
+function chartMonthDays() {
+  const { y, m } = chartYM;
+  return new Date(y, m + 1, 0).getDate();
+}
+
+function chartSeries(prop) {
+  const { y, m } = chartYM;
+  const out = [];
+  entries.filter(inCurrentMode).forEach((e) => {
+    if (e[prop] == null || !e.date) return;
+    const [ey, em, ed] = e.date.split("-").map(Number);
+    if (ey === y && em === m + 1) out.push({ day: ed, val: e[prop] });
+  });
+  return out.sort((a, b) => a.day - b.day);
+}
+
+function renderChart() {
+  if (!chartYM) return;
+  const { y, m } = chartYM;
+  const weight = chartSeries("weight");
+  const steps = chartSeries("steps");
+  const avg = (arr) => arr.length ? (arr.reduce((s, d) => s + d.val, 0) / arr.length) : null;
+  const wAvg = avg(weight), sAvg = avg(steps);
+
+  document.getElementById("editor").innerHTML = `
+    <div class="chart-wrap">
+      <div class="cal-header">
+        <button class="cal-nav" id="chPrev">‹ 前の月</button>
+        <div class="cal-title">${y}年 ${m + 1}月${secretMode ? " 🔒" : ""}</div>
+        <button class="cal-nav" id="chNext">次の月 ›</button>
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-head"><span>⚖️ 体重（kg）</span>
+          <span class="chart-avg">${wAvg != null ? "平均 " + wAvg.toFixed(1) + "kg・" + weight.length + "日" : ""}</span></div>
+        ${lineChartSVG("kg", weight, "#a8744f", 1)}
+      </div>
+
+      <div class="chart-block">
+        <div class="chart-head"><span>👣 歩数（歩）</span>
+          <span class="chart-avg">${sAvg != null ? "平均 " + Math.round(sAvg).toLocaleString() + "歩・" + steps.length + "日" : ""}</span></div>
+        ${lineChartSVG("歩", steps, "#5a78c0", 0)}
+      </div>
+
+      <div class="cal-foot">
+        <button class="btn" id="chToday">今月へ</button>
+        <button class="btn" id="chClose">閉じる</button>
+      </div>
+    </div>`;
+
+  document.getElementById("chPrev").onclick = () => shiftChartMonth(-1);
+  document.getElementById("chNext").onclick = () => shiftChartMonth(1);
+  document.getElementById("chToday").onclick = () => {
+    const d = new Date(); chartYM = { y: d.getFullYear(), m: d.getMonth() }; renderChart();
+  };
+  document.getElementById("chClose").onclick = () => {
+    chartYM = null;
+    document.getElementById("editor").innerHTML =
+      `<div class="welcome"><h2>ようこそ</h2><p>左の「＋ 新しい日記」から今日の記録を始めましょう。</p></div>`;
+    render();
+  };
+}
+
 // CSVテキストを2次元配列にパース（引用符・改行・""エスケープ対応）
 function parseCsv(text) {
   text = text.replace(/^﻿/, ""); // BOM除去
@@ -1222,8 +1369,9 @@ document.getElementById("btnSyncPush").onclick = syncPush;
 document.getElementById("btnSyncPull").onclick = syncPull;
 renderSyncStatus();
 
-document.getElementById("btnNew").onclick = newEntry;
+document.getElementById("btnNew").onclick = () => newEntry();
 document.getElementById("btnCal").onclick = openCalendar;
+document.getElementById("btnChart").onclick = openChart;
 document.getElementById("search").addEventListener("input", (ev) => {
   const v = ev.target.value;
   // 合言葉が入力されたら裏日記モードへ（軽い隠しコマンド）
@@ -1278,6 +1426,7 @@ document.getElementById("importCsvFile").addEventListener("change", (ev) => {
 });
 
 render();
+openCalendar(); // トップ画面はカレンダー表示
 </script>
 </body>
 </html>
