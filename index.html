@@ -239,6 +239,11 @@
   .cal-cell.has { cursor: pointer; background: var(--accent-soft); transition: transform .08s, box-shadow .1s; }
   .cal-cell.has:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
   .cal-cell.has:focus { outline: 2px solid var(--accent); }
+  .cal-cell.add { cursor: pointer; position: relative; }
+  .cal-add-hint { position: absolute; right: 6px; bottom: 4px; font-size: 14px; color: var(--line); }
+  .cal-cell.add:hover { background: #f7f2ea; }
+  .cal-cell.add:hover .cal-add-hint { color: var(--accent); }
+  .cal-cell.add:focus { outline: 2px solid var(--accent-soft); }
   .cal-mark { font-size: 16px; line-height: 1.2; }
   .cal-count { font-size: 10px; color: var(--accent); margin-left: 2px; vertical-align: middle; }
   .cal-foot { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
@@ -575,12 +580,12 @@ function enforceOnePerDay() {
   return removed;
 }
 
-function newEntry() {
+function newEntry(dateArg) {
   calYM = null;
-  const date = todayStr();
+  const date = dateArg || todayStr();
   const existing = findEntry(date, secretMode);
   if (existing) {
-    alert(`今日（${date}）の${secretMode ? "裏" : "表"}日記はすでにあります。1日1件までなので、既存の日記を開きます。`);
+    alert(`${date} の${secretMode ? "裏" : "表"}日記はすでにあります。1日1件までなので、既存の日記を開きます。`);
     openEntry(existing.id);
     return;
   }
@@ -884,7 +889,7 @@ function renderCalendar() {
     if (wd === 0) cls.push("sun");
     if (wd === 6) cls.push("sat");
     if (isToday(day)) cls.push("today");
-    if (list) cls.push("has");
+    if (list) cls.push("has"); else cls.push("add");
     const dateStr = `${y}-${p(m + 1)}-${p(day)}`;
     let inner = `<span class="cal-day">${day}</span>`;
     if (list) {
@@ -892,8 +897,10 @@ function renderCalendar() {
       const badge = list.length > 1 ? `<span class="cal-count">${list.length}件</span>` : "";
       const photo = list.some((e) => e.photos && e.photos.length) ? "📷" : "";
       inner += `<span class="cal-mark">${emo || "●"}${photo}${badge}</span>`;
+    } else {
+      inner += `<span class="cal-add-hint">＋</span>`;
     }
-    cells += `<div class="${cls.join(" ")}"${list ? ` data-date="${dateStr}" role="button" tabindex="0"` : ""}>${inner}</div>`;
+    cells += `<div class="${cls.join(" ")}" data-date="${dateStr}" role="button" tabindex="0">${inner}</div>`;
   }
 
   document.getElementById("editor").innerHTML = `
@@ -917,8 +924,10 @@ function renderCalendar() {
     const d = new Date(); calYM = { y: d.getFullYear(), m: d.getMonth() }; renderCalendar();
   };
   document.getElementById("calClose").onclick = closeCalendar;
-  document.querySelectorAll("#calBody .cal-cell.has").forEach((cell) => {
-    const go = () => openDate(cell.dataset.date);
+  document.querySelectorAll("#calBody .cal-cell[data-date]").forEach((cell) => {
+    const ds = cell.dataset.date;
+    const has = cell.classList.contains("has");
+    const go = () => has ? openDate(ds) : newEntry(ds);
     cell.onclick = go;
     cell.onkeydown = (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); } };
   });
