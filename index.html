@@ -547,7 +547,7 @@ function renderSecretBanner() {
       <div class="sb-row"><span>🔒 裏日記モード</span>
       <button class="sb-exit" id="btnExitSecret">通常に戻る</button></div>
       <button class="sb-word" id="btnChangeWord">合言葉を変更</button>`;
-    document.getElementById("btnExitSecret").onclick = exitSecret;
+    document.getElementById("btnExitSecret").onclick = () => navGuard(exitSecret);
     document.getElementById("btnChangeWord").onclick = changeSecretWord;
     if (brand) brand.textContent = "私的な日記 🔒";
   } else {
