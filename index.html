@@ -129,9 +129,10 @@
     color: var(--ink); font-family: inherit;
   }
   .title-input:focus { outline: none; border-color: var(--accent); }
+  .field-label { font-size: 12px; color: var(--sub); margin: 16px 0 5px; font-weight: 600; letter-spacing: .03em; }
   .place-input {
     width: 100%; border: 1px solid var(--line); border-radius: 8px;
-    padding: 8px 10px; margin-bottom: 12px; font-size: 14px; background: #fff;
+    padding: 8px 10px; font-size: 14px; background: #fff;
     color: var(--ink); font-family: inherit;
   }
   .place-input:focus { outline: none; border-color: var(--accent); }
@@ -143,7 +144,7 @@
   }
   .body-input:focus { outline: none; }
   .tags-input {
-    width: 100%; margin-top: 16px; border: 1px solid var(--line); border-radius: 8px;
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
     padding: 8px 10px; font-size: 13px; background: #fff; color: var(--ink);
   }
   .tags-input:focus { outline: none; border-color: var(--accent); }
@@ -602,17 +603,18 @@ function renderEditor(e, focusTitle) {
       <div class="picker" id="weatherPicker"><span class="picker-label">天気</span>${pickerHtml(WEATHERS, "weather", e.weather)}</div>
     </div>
     <input class="title-input" id="fTitle" placeholder="タイトル（例：静かな一日）" value="${escapeHtml(e.title)}">
-    <input class="place-input" id="fPlace" placeholder="📍 お出かけ先（例：鎌倉、〇〇カフェ）" value="${escapeHtml(e.place || "")}">
     <textarea class="body-input" id="fBody" placeholder="今日はどんな一日でしたか…">${escapeHtml(e.body)}</textarea>
     <div class="photo-section">
       <div class="photo-grid" id="photoGrid"></div>
       <button type="button" class="btn-photo" id="btnAddPhoto">📷 写真を追加</button>
       <input type="file" id="photoFile" accept="image/*" multiple style="display:none">
     </div>
-    <input class="tags-input" id="fTags" placeholder="タグ（カンマや空白で区切る　例：仕事, 家族, 散歩）" value="${escapeHtml((e.tags || []).join(", "))}">
+    <div class="field-label">📍 お出かけ先</div>
+    <input class="place-input" id="fPlace" placeholder="例：鎌倉、〇〇カフェ" value="${escapeHtml(e.place || "")}">
+    <div class="field-label">🏷️ タグ</div>
+    <input class="tags-input" id="fTags" placeholder="カンマや空白で区切る　例：仕事, 家族, 散歩" value="${escapeHtml((e.tags || []).join(", "))}">
     <div class="tag-suggest" id="tagSuggest"></div>
     <div class="tag-hint">タグで後から絞り込めます。「#」は不要です。既存のタグはクリックで追加・解除できます。</div>
-    <label class="secret-toggle"><input type="checkbox" id="fSecret" ${e.secret ? "checked" : ""}> 🔒 この日記を裏日記にする（合言葉を入れたときだけ表示）</label>
     <div class="actions">
       <button class="btn btn-save" id="btnSave">保存</button>
       <span class="saved-flash" id="savedFlash">保存しました ✓</span>
@@ -638,8 +640,6 @@ function renderEditor(e, focusTitle) {
   bind("fBody", "body");
   document.getElementById("fTags").addEventListener("input", (ev) => { e._tagsRaw = ev.target.value; renderTagSuggest(); });
   renderTagSuggest();
-  document.getElementById("fSecret").addEventListener("change", (ev) => { e.secret = ev.target.checked; });
-
   renderPhotos(e);
   document.getElementById("btnAddPhoto").onclick = () => document.getElementById("photoFile").click();
   document.getElementById("photoFile").addEventListener("change", async (ev) => {
