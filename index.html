@@ -538,6 +538,8 @@ function escapeHtml(s) {
 function renderSecretBanner() {
   const b = document.getElementById("secretBanner");
   const brand = document.querySelector(".brand h1");
+  const chartBtn = document.getElementById("btnChart");
+  if (chartBtn) chartBtn.style.display = secretMode ? "none" : ""; // 裏日記中はグラフを隠す
   if (secretMode) {
     b.style.display = "block";
     b.innerHTML = `
@@ -557,9 +559,8 @@ function exitSecret() {
   secretMode = false;
   selectedId = null; activeTag = null; searchQuery = "";
   document.getElementById("search").value = "";
-  document.getElementById("editor").innerHTML =
-    `<div class="welcome"><h2>ようこそ</h2><p>左の「＋ 新しい日記」から今日の記録を始めましょう。</p></div>`;
-  render();
+  calYM = null;
+  openCalendar(); // 通常に戻ったらカレンダー表示
 }
 
 function changeSecretWord() {
@@ -1386,9 +1387,8 @@ document.getElementById("search").addEventListener("input", (ev) => {
     searchQuery = "";
     activeTag = null;
     selectedId = null;
-    document.getElementById("editor").innerHTML =
-      `<div class="welcome"><h2>🔒 裏日記</h2><p>ここでは裏日記だけが表示されます。<br>「＋ 新しい日記」で書いたものは自動的に裏日記になります。</p></div>`;
-    render();
+    calYM = null;
+    openCalendar(); // 裏日記に入ったらカレンダー表示
     return;
   }
   searchQuery = v;
