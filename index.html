@@ -389,6 +389,7 @@ let searchQuery = "";
 let secretMode = false; // 裏日記モード（リロードで解除・保存しない）
 let calYM = null; // カレンダー表示中の年月 {y, m}（0〜11）。nullなら非表示
 let chartYM = null; // グラフ表示中の年月 {y, m}
+let editorDirty = false; // 編集画面に未保存の変更があるか
 const SECRET_WORD_KEY = "private_diary_secret_word_v1";
 function getSecretWord() { return localStorage.getItem(SECRET_WORD_KEY) || "ひみつ"; }
 function setSecretWord(w) { localStorage.setItem(SECRET_WORD_KEY, w); }
@@ -589,6 +590,7 @@ function openEntry(id) {
   const e = entries.find((x) => x.id === id);
   if (!e) return;
   calYM = null; chartYM = null;
+  editorDirty = false;
   selectedId = id;
   renderEditor(e);
   render();
@@ -623,6 +625,7 @@ function newEntry(dateArg) {
   }
   // 「保存」を押すまでは entries に加えず保存もしない（保存前に移動すれば残らない）
   const e = { id: uid(), date, title: "", place: "", body: "", mood: "", weather: "", tags: [], secret: secretMode, created: Date.now(), updated: Date.now() };
+  editorDirty = false;
   selectedId = e.id;
   renderEditor(e, true);
   render();
@@ -676,9 +679,14 @@ function renderEditor(e, focusTitle) {
       const kind = btn.dataset.kind, val = btn.dataset.val;
       const cur = e[kind];
       e[kind] = cur === val ? "" : val;
+      editorDirty = true;
       renderEditor(e);
     };
   });
+  // 入力があれば未保存フラグを立てる
+  ed.querySelectorAll("input, textarea").forEach((el) =>
+    el.addEventListener("input", () => { editorDirty = true; })
+  );
   const bind = (id, prop, transform) => {
     document.getElementById(id).addEventListener("input", (ev) => {
       e[prop] = transform ? transform(ev.target.value) : ev.target.value;
@@ -710,7 +718,7 @@ function renderEditor(e, focusTitle) {
     e.photos = e.photos || [];
     for (const f of files) {
       if (!f.type.startsWith("image/")) continue;
-      try { e.photos.push(await resizeImage(f)); }
+      try { e.photos.push(await resizeImage(f)); editorDirty = true; }
       catch (err) { alert("読み込めない画像がありました: " + f.name); }
     }
     renderPhotos(e);
@@ -743,6 +751,7 @@ function renderPhotos(e) {
     cell.querySelector(".photo-del").onclick = () => {
       if (!confirm("この写真を削除しますか？")) return;
       e.photos.splice(i, 1);
+      editorDirty = true;
       renderPhotos(e);
     };
     grid.appendChild(cell);
@@ -804,6 +813,7 @@ function saveEntry(e) {
   const idx = entries.findIndex((x) => x.id === e.id);
   if (idx >= 0) entries[idx] = e; else entries.push(e);
   save();
+  editorDirty = false;
   const flash = document.getElementById("savedFlash");
   if (flash) { flash.classList.add("show"); setTimeout(() => flash.classList.remove("show"), 1500); }
   render();
@@ -1369,11 +1379,12 @@ renderSyncStatus();
 
 // 編集画面を開いているときは、移動前に未保存破棄の確認を出す
 function navGuard(action) {
-  const editing = !!document.getElementById("fDate");
+  const editing = !!document.getElementById("fDate") && editorDirty;
   if (editing) {
     if (!confirm("保存前だけど、削除して画面移動してOK？")) return;
     entries = load(); // 未保存の編集を破棄
   }
+  editorDirty = false;
   action();
 }
 
@@ -1398,7 +1409,7 @@ document.getElementById("search").addEventListener("input", (ev) => {
 });
 // 編集画面を開いているときは、書き出し前に確認を出す
 function exportGuard(fn) {
-  const editing = !!document.getElementById("fDate");
+  const editing = !!document.getElementById("fDate") && editorDirty;
   if (editing && !confirm("保存前のデータだけどOK？\n（今編集中の未保存分は書き出しに含まれません）")) return;
   fn();
 }
