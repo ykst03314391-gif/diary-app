@@ -129,6 +129,13 @@
     color: var(--ink); font-family: inherit;
   }
   .title-input:focus { outline: none; border-color: var(--accent); }
+  .place-input {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 12px; font-size: 14px; background: #fff;
+    color: var(--ink); font-family: inherit;
+  }
+  .place-input:focus { outline: none; border-color: var(--accent); }
+  .place-line { font-size: 12px; color: var(--accent); margin: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .body-input {
     width: 100%; min-height: 300px; border: none; resize: vertical;
     font-size: 15px; line-height: 1.9; background: transparent; color: var(--ink);
@@ -428,7 +435,7 @@ function filtered() {
       if (!inCurrentMode(e)) return false;
       if (activeTag && !(e.tags || []).includes(activeTag)) return false;
       if (q) {
-        const hay = `${e.title} ${e.body} ${(e.tags || []).join(" ")}`.toLowerCase();
+        const hay = `${e.title} ${e.place || ""} ${e.body} ${(e.tags || []).join(" ")}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -480,6 +487,7 @@ function renderList() {
         <span class="emo">${photoBadge}${emo}</span>
       </div>
       <div class="title">${escapeHtml(e.title) || "（無題）"}</div>
+      ${e.place ? `<div class="place-line">📍 ${escapeHtml(e.place)}</div>` : ""}
       <div class="preview">${escapeHtml((e.body || "").replace(/\n/g, " ")) || "（本文なし）"}</div>`;
     div.onclick = () => openEntry(e.id);
     list.appendChild(div);
@@ -575,7 +583,7 @@ function newEntry() {
     openEntry(existing.id);
     return;
   }
-  const e = { id: uid(), date, title: "", body: "", mood: "", weather: "", tags: [], secret: secretMode, created: Date.now(), updated: Date.now() };
+  const e = { id: uid(), date, title: "", place: "", body: "", mood: "", weather: "", tags: [], secret: secretMode, created: Date.now(), updated: Date.now() };
   entries.push(e);
   save();
   selectedId = e.id;
@@ -594,6 +602,7 @@ function renderEditor(e, focusTitle) {
       <div class="picker" id="weatherPicker"><span class="picker-label">天気</span>${pickerHtml(WEATHERS, "weather", e.weather)}</div>
     </div>
     <input class="title-input" id="fTitle" placeholder="タイトル（例：静かな一日）" value="${escapeHtml(e.title)}">
+    <input class="place-input" id="fPlace" placeholder="📍 お出かけ先（例：鎌倉、〇〇カフェ）" value="${escapeHtml(e.place || "")}">
     <textarea class="body-input" id="fBody" placeholder="今日はどんな一日でしたか…">${escapeHtml(e.body)}</textarea>
     <div class="photo-section">
       <div class="photo-grid" id="photoGrid"></div>
@@ -625,6 +634,7 @@ function renderEditor(e, focusTitle) {
   };
   bind("fDate", "date");
   bind("fTitle", "title");
+  bind("fPlace", "place");
   bind("fBody", "body");
   document.getElementById("fTags").addEventListener("input", (ev) => { e._tagsRaw = ev.target.value; renderTagSuggest(); });
   renderTagSuggest();
@@ -778,9 +788,9 @@ function exportCsv() {
   if (list.length === 0) { alert(`書き出す${scope}日記がありません。`); return; }
   const moodLabel = (e) => (MOODS.find((m) => m.e === e) || {}).label || "";
   const wLabel = (e) => (WEATHERS.find((w) => w.e === e) || {}).label || "";
-  const header = ["日付", "タイトル", "本文", "気分", "天気", "タグ"];
+  const header = ["日付", "タイトル", "お出かけ先", "本文", "気分", "天気", "タグ"];
   const rows = list.map((e) => [
-    e.date, e.title, e.body,
+    e.date, e.title, e.place || "", e.body,
     `${e.mood || ""} ${moodLabel(e.mood)}`.trim(),
     `${e.weather || ""} ${wLabel(e.weather)}`.trim(),
     (e.tags || []).join(" / "),
@@ -978,7 +988,7 @@ function importCsv(file) {
     if (rows.length < 2) { alert("読み込めるデータがありませんでした。"); return; }
     const header = rows[0].map((h) => h.trim());
     const col = (name) => header.indexOf(name);
-    const iDate = col("日付"), iTitle = col("タイトル"), iBody = col("本文"),
+    const iDate = col("日付"), iTitle = col("タイトル"), iPlace = col("お出かけ先"), iBody = col("本文"),
           iMood = col("気分"), iWeather = col("天気"), iTags = col("タグ");
     if (iDate < 0 && iBody < 0 && iTitle < 0) {
       alert("列名が見つかりません。1行目に「日付, タイトル, 本文, 気分, 天気, タグ」の見出しが必要です。");
@@ -989,6 +999,7 @@ function importCsv(file) {
       id: uid(),
       date: (iDate >= 0 ? r[iDate] : "").trim() || todayStr(),
       title: (iTitle >= 0 ? r[iTitle] : "").trim(),
+      place: (iPlace >= 0 ? r[iPlace] : "").trim(),
       body: iBody >= 0 ? r[iBody] : "",
       mood: iMood >= 0 ? resolveEmoji(r[iMood], MOODS) : "",
       weather: iWeather >= 0 ? resolveEmoji(r[iWeather], WEATHERS) : "",
