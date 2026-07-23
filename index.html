@@ -249,9 +249,28 @@
   .footer-note { text-align:center; font-size: 11px; color: var(--sub); padding: 10px; }
   .count-note { font-size: 11px; color: var(--sub); padding: 6px 16px; }
   @media (max-width: 760px) {
-    .app { grid-template-columns: 1fr; }
-    .sidebar { display: none; }
-    .sidebar.mobile-open { display: flex; position: fixed; inset: 0; z-index: 10; }
+    html, body { height: auto; }
+    .app { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+    .sidebar {
+      border-right: none; border-bottom: 2px solid var(--line);
+      max-height: none;
+    }
+    /* リストが長くなりすぎないようにスマホでは高さ制限＋内部スクロール */
+    .list { max-height: 45vh; }
+    .main { overflow: visible; }
+    .editor { padding: 20px 16px 48px; }
+    .meta-row { gap: 10px; }
+    .title-input { font-size: 20px; }
+    .body-input { min-height: 220px; }
+    /* カレンダーをコンパクトに */
+    .cal-wrap { max-width: 100%; }
+    .cal-grid { gap: 3px; }
+    .cal-cell { min-height: 52px; padding: 4px; }
+    .cal-cell .cal-day { font-size: 12px; }
+    .cal-mark { font-size: 13px; }
+    .cal-title { font-size: 17px; }
+    .cal-nav { padding: 6px 8px; font-size: 12px; }
+    .photo-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
   }
 </style>
 </head>
