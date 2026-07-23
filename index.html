@@ -138,6 +138,14 @@
   }
   .place-input:focus { outline: none; border-color: var(--accent); }
   .place-line { font-size: 12px; color: var(--accent); margin: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat-line { font-size: 12px; color: var(--sub); margin: 2px 0; }
+  .num-row { display: flex; gap: 14px; }
+  .num-field { flex: 1; }
+  .num-input {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-size: 14px; background: #fff; color: var(--ink); font-family: inherit;
+  }
+  .num-input:focus { outline: none; border-color: var(--accent); }
   .body-input {
     width: 100%; min-height: 300px; border: none; resize: vertical;
     font-size: 15px; line-height: 1.9; background: transparent; color: var(--ink);
@@ -498,6 +506,7 @@ function renderList() {
       </div>
       <div class="title">${escapeHtml(e.title) || "（無題）"}</div>
       ${e.place ? `<div class="place-line">📍 ${escapeHtml(e.place)}</div>` : ""}
+      ${(e.weight != null || e.steps != null) ? `<div class="stat-line">${e.weight != null ? `⚖️ ${e.weight}kg` : ""}${(e.weight != null && e.steps != null) ? "　" : ""}${e.steps != null ? `👣 ${e.steps}歩` : ""}</div>` : ""}
       <div class="preview">${escapeHtml((e.body || "").replace(/\n/g, " ")) || "（本文なし）"}</div>`;
     div.onclick = () => openEntry(e.id);
     list.appendChild(div);
@@ -621,6 +630,16 @@ function renderEditor(e, focusTitle) {
     </div>
     <div class="field-label">📍 お出かけ先</div>
     <input class="place-input" id="fPlace" placeholder="例：鎌倉、〇〇カフェ" value="${escapeHtml(e.place || "")}">
+    <div class="num-row">
+      <div class="num-field">
+        <div class="field-label">⚖️ 体重（kg）</div>
+        <input class="num-input" id="fWeight" type="number" inputmode="decimal" step="0.1" min="0" placeholder="例：58.5" value="${e.weight != null ? e.weight : ""}">
+      </div>
+      <div class="num-field">
+        <div class="field-label">👣 歩数（歩）</div>
+        <input class="num-input" id="fSteps" type="number" inputmode="numeric" step="1" min="0" placeholder="例：8000" value="${e.steps != null ? e.steps : ""}">
+      </div>
+    </div>
     <div class="field-label">🏷️ タグ</div>
     <input class="tags-input" id="fTags" placeholder="カンマや空白で区切る　例：仕事, 家族, 散歩" value="${escapeHtml((e.tags || []).join(", "))}">
     <div class="tag-suggest" id="tagSuggest"></div>
@@ -648,6 +667,15 @@ function renderEditor(e, focusTitle) {
   bind("fTitle", "title");
   bind("fPlace", "place");
   bind("fBody", "body");
+  const bindNum = (id, prop) => {
+    document.getElementById(id).addEventListener("input", (ev) => {
+      const v = ev.target.value.trim();
+      if (v === "" || isNaN(Number(v))) delete e[prop];
+      else e[prop] = Number(v);
+    });
+  };
+  bindNum("fWeight", "weight");
+  bindNum("fSteps", "steps");
   document.getElementById("fTags").addEventListener("input", (ev) => { e._tagsRaw = ev.target.value; renderTagSuggest(); });
   renderTagSuggest();
   renderPhotos(e);
@@ -804,9 +832,10 @@ function exportCsv() {
   if (list.length === 0) { alert(`書き出す${scope}日記がありません。`); return; }
   const moodLabel = (e) => (MOODS.find((m) => m.e === e) || {}).label || "";
   const wLabel = (e) => (WEATHERS.find((w) => w.e === e) || {}).label || "";
-  const header = ["日付", "タイトル", "お出かけ先", "本文", "気分", "天気", "タグ"];
+  const header = ["日付", "タイトル", "お出かけ先", "体重(kg)", "歩数", "本文", "気分", "天気", "タグ"];
   const rows = list.map((e) => [
-    e.date, e.title, e.place || "", e.body,
+    e.date, e.title, e.place || "",
+    e.weight != null ? e.weight : "", e.steps != null ? e.steps : "", e.body,
     `${e.mood || ""} ${moodLabel(e.mood)}`.trim(),
     `${e.weather || ""} ${wLabel(e.weather)}`.trim(),
     (e.tags || []).join(" / "),
@@ -1008,7 +1037,8 @@ function importCsv(file) {
     if (rows.length < 2) { alert("読み込めるデータがありませんでした。"); return; }
     const header = rows[0].map((h) => h.trim());
     const col = (name) => header.indexOf(name);
-    const iDate = col("日付"), iTitle = col("タイトル"), iPlace = col("お出かけ先"), iBody = col("本文"),
+    const iDate = col("日付"), iTitle = col("タイトル"), iPlace = col("お出かけ先"),
+          iWeight = col("体重(kg)"), iSteps = col("歩数"), iBody = col("本文"),
           iMood = col("気分"), iWeather = col("天気"), iTags = col("タグ");
     if (iDate < 0 && iBody < 0 && iTitle < 0) {
       alert("列名が見つかりません。1行目に「日付, タイトル, 本文, 気分, 天気, タグ」の見出しが必要です。");
@@ -1020,6 +1050,8 @@ function importCsv(file) {
       date: (iDate >= 0 ? r[iDate] : "").trim() || todayStr(),
       title: (iTitle >= 0 ? r[iTitle] : "").trim(),
       place: (iPlace >= 0 ? r[iPlace] : "").trim(),
+      weight: iWeight >= 0 && r[iWeight] != null && String(r[iWeight]).trim() !== "" && !isNaN(Number(r[iWeight])) ? Number(r[iWeight]) : undefined,
+      steps: iSteps >= 0 && r[iSteps] != null && String(r[iSteps]).trim() !== "" && !isNaN(Number(r[iSteps])) ? Number(r[iSteps]) : undefined,
       body: iBody >= 0 ? r[iBody] : "",
       mood: iMood >= 0 ? resolveEmoji(r[iMood], MOODS) : "",
       weather: iWeather >= 0 ? resolveEmoji(r[iWeather], WEATHERS) : "",
