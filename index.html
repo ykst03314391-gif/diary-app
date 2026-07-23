@@ -1395,8 +1395,15 @@ document.getElementById("search").addEventListener("input", (ev) => {
   searchQuery = v;
   render();
 });
-document.getElementById("btnExportJson").onclick = exportJson;
-document.getElementById("btnExportCsv").onclick = exportCsv;
+// 編集画面を開いているときは、書き出し前に確認を出す
+function exportGuard(fn) {
+  const editing = !!document.getElementById("fDate");
+  if (editing && !confirm("保存前のデータだけどOK？\n（今編集中の未保存分は書き出しに含まれません）")) return;
+  fn();
+}
+
+document.getElementById("btnExportJson").onclick = () => exportGuard(exportJson);
+document.getElementById("btnExportCsv").onclick = () => exportGuard(exportCsv);
 document.getElementById("btnImportJson").onclick = () => document.getElementById("importFile").click();
 document.getElementById("importFile").addEventListener("change", (ev) => {
   const f = ev.target.files[0];
