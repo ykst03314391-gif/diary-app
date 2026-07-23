@@ -714,11 +714,7 @@ function renderEditor(e, focusTitle) {
     renderPhotos(e);
   });
 
-  document.getElementById("btnToCal").onclick = () => {
-    if (!confirm("保存前だけど、削除して画面移動してOK？")) return;
-    entries = load(); // 未保存の編集を破棄
-    openCalendar();
-  };
+  document.getElementById("btnToCal").onclick = () => navGuard(openCalendar);
   document.getElementById("btnSave").onclick = () => saveEntry(e);
   document.getElementById("btnDel").onclick = () => delEntry(e);
   // Ctrl/Cmd+S で保存
@@ -1369,9 +1365,19 @@ document.getElementById("btnSyncPush").onclick = syncPush;
 document.getElementById("btnSyncPull").onclick = syncPull;
 renderSyncStatus();
 
+// 編集画面を開いているときは、移動前に未保存破棄の確認を出す
+function navGuard(action) {
+  const editing = !!document.getElementById("fDate");
+  if (editing) {
+    if (!confirm("保存前だけど、削除して画面移動してOK？")) return;
+    entries = load(); // 未保存の編集を破棄
+  }
+  action();
+}
+
 document.getElementById("btnNew").onclick = () => newEntry();
-document.getElementById("btnCal").onclick = openCalendar;
-document.getElementById("btnChart").onclick = openChart;
+document.getElementById("btnCal").onclick = () => navGuard(openCalendar);
+document.getElementById("btnChart").onclick = () => navGuard(openChart);
 document.getElementById("search").addEventListener("input", (ev) => {
   const v = ev.target.value;
   // 合言葉が入力されたら裏日記モードへ（軽い隠しコマンド）
